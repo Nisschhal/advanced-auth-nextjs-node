@@ -1,0 +1,38 @@
+import { HTTPSTATUS } from "@/config/http.config.js"
+import { ErrorCode } from "../enums/error-code.enum.js"
+import { AppError } from "./AppError.js"
+
+export class NotFoundException extends AppError {
+  constructor(message = "Resource not found", errorCode?: ErrorCode) {
+    super(
+      message,
+      HTTPSTATUS.NOT_FOUND,
+      errorCode || ErrorCode.RESOURCE_NOT_FOUND,
+    )
+  }
+}
+
+export class BadRequestException extends AppError {
+  constructor(message = "Bad Request", errorCode?: ErrorCode) {
+    super(message, HTTPSTATUS.BAD_REQUEST, errorCode)
+  }
+}
+
+export class UnauthorizedExpception extends AppError {
+  constructor(message = "Unauthorized Access", errorCode?: ErrorCode) {
+    super(
+      message,
+      HTTPSTATUS.UNAUTHORIZED,
+      errorCode || ErrorCode.AUTH_UNAUTHORIZED_ACCESS,
+    )
+  }
+}
+export class InternalServerException extends AppError {
+  constructor(message = "Internal server Error", errorCode?: ErrorCode) {
+    super(
+      message,
+      HTTPSTATUS.INTERNAL_SERVER_ERROR,
+      errorCode || ErrorCode.INTERNAL_SERVER_ERROR,
+    )
+  }
+}
