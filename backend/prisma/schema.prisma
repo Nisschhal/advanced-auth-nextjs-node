@@ -12,3 +12,99 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// Enum for verification codes — same as your old VerificationEnum
+enum VerificationType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  // you can add more types here later
+}
+
+// ────────────────────────────────────────────────
+// USER MODEL (main user table)
+// ────────────────────────────────────────────────
+
+model User {
+  id              Int     @id @default(autoincrement())
+  name            String
+  email           String  @unique
+  password        String // ← always hash this before saving!
+  isEmailVerified Boolean @default(false)
+
+  // 1:1 relation to separate preferences table
+  preferences UserPreferences? @relation("UserToPreferences")
+
+  // Relations to other tables
+  sessions          Session[]
+  verificationCodes VerificationCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email]) // fast login / lookup by email
+  @@map("users")
+}
+
+// ────────────────────────────────────────────────
+// SEPARATE TABLE FOR PREFERENCES
+// This creates its own table called "user_preferences"
+// Each user can have 0 or 1 row here
+// ────────────────────────────────────────────────
+
+model UserPreferences {
+  id     Int @id @default(autoincrement())
+  userId Int @unique // one user → one preference row
+
+  enable2FA         Boolean @default(false)
+  emailNotification Boolean @default(true)
+  twoFactorSecret   String? // optional
+
+  // Relation back to User
+  user User @relation("UserToPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+// ────────────────────────────────────────────────
+// SESSION TABLE
+// ────────────────────────────────────────────────
+
+model Session {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  expiredAt DateTime // set to 30 days from now in your code
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // fast lookup per user
+  @@index([expiredAt]) // fast cleanup of expired sessions
+  @@map("sessions")
+}
+
+// ────────────────────────────────────────────────
+// VERIFICATION CODE TABLE
+// ────────────────────────────────────────────────
+
+model VerificationCode {
+  id     Int              @id @default(autoincrement())
+  userId Int
+  code   String           @unique
+  type   VerificationType
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // fast per user
+  @@index([code]) // fast code lookup
+  @@index([type]) // if you filter by type
+  @@index([expiresAt]) // fast cleanup
+  @@map("verification_codes")
+}

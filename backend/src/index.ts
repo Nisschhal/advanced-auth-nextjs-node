@@ -23,14 +23,15 @@ import { connectDatabase } from "./database/db.js"
 import { errorHandler } from "./middlewares/errorHandler.middleware.js"
 import { HTTPSTATUS } from "./config/http.config.js"
 import { asycnHandler } from "./middlewares/asyncHandler.middlware.js"
-import {
-  BadRequestException,
-  UnauthorizedExpception,
-} from "./commons/utils/catch-errors.js"
+import { BadRequestException } from "./commons/utils/catch-errors.js"
+import authRoutes from "./modules/auth/auth.routes.js"
 
 // Create the main Express application instance
 // This 'app' is your entire server — routes, middleware, etc. attach here
 const app = express()
+
+// api/v1
+const BASE_PATH = config.BASE_PATH
 
 // -----------------------------------------------------------------------------
 //                  BODY PARSING (VERY IMPORTANT FOR APIs)
@@ -54,7 +55,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }))
 // origin: config.APP_ORIGIN → only allow specific frontend URL (safer than "*")
 app.use(
   cors({
-    origin: config.APP_ORIGIN, // e.g. "http://localhost:3000" or your production frontend
+    origin: [config.APP_ORIGIN, "*"], // e.g. "http://localhost:3000" or your production frontend
     credentials: true, // ← MUST be true if using cookies/JWT in browser
   }),
 )
@@ -73,10 +74,10 @@ app.use(cookieParser())
 
 // Basic health-check / root route — returns simple JSON
 // Useful for testing if server is alive (e.g. load balancers, frontend ping)
-app.use(
+app.get(
   "/",
-  asycnHandler((req: Request, res: Response, next: NextFunction) => {
-    throw new UnauthorizedExpception("Bad request")
+  asycnHandler(async (req: Request, res: Response) => {
+    // throw new BadRequestException("Bad request")
     res.status(HTTPSTATUS.OK).json({
       message: "Hello World!",
       // Optional: show environment & port for debugging
@@ -85,6 +86,9 @@ app.use(
     })
   }),
 )
+
+// ---------- Auth Routes
+app.use(`${BASE_PATH}/auth`, authRoutes)
 
 //----------- ERROR HANDLER MIDDLEARE
 app.use(errorHandler)

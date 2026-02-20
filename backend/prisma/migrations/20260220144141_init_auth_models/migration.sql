@@ -1,0 +1,2 @@
+-- CreateEnum
+CREATE TYPE "VerificationType" AS ENUM ('EMAIL_VERIFICATION', 'PASSWORD_RESET');
