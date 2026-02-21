@@ -25,7 +25,7 @@ enum VerificationType {
 // ────────────────────────────────────────────────
 
 model User {
-  id              Int     @id @default(autoincrement())
+  id              String  @id @default(uuid())
   name            String
   email           String  @unique
   password        String // ← always hash this before saving!
@@ -52,8 +52,8 @@ model User {
 // ────────────────────────────────────────────────
 
 model UserPreferences {
-  id     Int @id @default(autoincrement())
-  userId Int @unique // one user → one preference row
+  id     String @id @default(uuid())
+  userId String @unique // one user → one preference row
 
   enable2FA         Boolean @default(false)
   emailNotification Boolean @default(true)
@@ -73,8 +73,8 @@ model UserPreferences {
 // ────────────────────────────────────────────────
 
 model Session {
-  id        Int     @id @default(autoincrement())
-  userId    Int
+  id        String  @id @default(uuid())
+  userId    String
   userAgent String?
 
   createdAt DateTime @default(now())
@@ -92,8 +92,8 @@ model Session {
 // ────────────────────────────────────────────────
 
 model VerificationCode {
-  id     Int              @id @default(autoincrement())
-  userId Int
+  id     String           @id @default(uuid())
+  userId String
   code   String           @unique
   type   VerificationType
 

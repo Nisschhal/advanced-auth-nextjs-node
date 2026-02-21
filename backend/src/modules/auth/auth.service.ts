@@ -52,7 +52,14 @@ export class AuthService {
         name,
         email,
         password: hashedPassword, // hashed!
+
+        preferences: {
+          create: {
+            twoFactorSecret: "123",
+          },
+        },
       },
+
       include: {
         preferences: true,
       },
@@ -66,6 +73,8 @@ export class AuthService {
         expiresAt: XMinutesFromNow(45), // 45 minutes from now
       },
     })
+
+    if (verificationCode) console.log("VerficationCode created successfully!")
 
     // TODO: SEND VERIFICATION EMAIL
     // Example: await sendVerificationEmail(email, verificationCode.code);
