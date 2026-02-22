@@ -5,6 +5,8 @@ const authRoutes = Router()
 
 authRoutes.post("/register", authController.register)
 authRoutes.post("/login", authController.login)
+authRoutes.post("/verify-email", authController.verifyEmail)
+
 authRoutes.post("/refresh", authController.refreshToken)
 
 export default authRoutes

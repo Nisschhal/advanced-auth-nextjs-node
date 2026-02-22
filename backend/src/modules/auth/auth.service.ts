@@ -185,6 +185,43 @@ export class AuthService {
     }
   }
 
+  public async verifyEmail(code: string) {
+    const validCode = await prisma.verificationCode.findUnique({
+      where: {
+        code,
+        type: VerificationType.EMAIL_VERIFICATION,
+        expiresAt: { gt: new Date() },
+      },
+    })
+    if (!validCode)
+      throw new BadRequestException("Invalid or expired verfication code")
+
+    const existingUser = await prisma.user.update({
+      where: {
+        id: validCode.userId,
+      },
+      data: {
+        isEmailVerified: true,
+      },
+      include: { preferences: true },
+    })
+    if (!existingUser)
+      throw new BadRequestException(
+        "Unable to verify Email",
+        ErrorCode.VALIDATION_ERROR,
+      )
+    await prisma.verificationCode.delete({
+      where: { id: validCode.id },
+    })
+
+    return {
+      success: true,
+      message: "User login Successfull!",
+      data: {
+        user: this.safeUser(existingUser),
+      },
+    }
+  }
   /**
    * Remove sensitive fields from user object before returning to client
    */

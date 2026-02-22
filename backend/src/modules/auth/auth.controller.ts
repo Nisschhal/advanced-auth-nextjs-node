@@ -5,6 +5,7 @@ import type { Request, Response } from "express"
 import {
   loginSchema,
   registerSchema,
+  verficationEmailSchema,
 } from "@/commons/validators/auth.validator.js"
 import type { ApiResponse } from "@/commons/types/api-response.js"
 import {
@@ -13,6 +14,7 @@ import {
   setAuthCookies,
 } from "@/commons/utils/cookie.js"
 import { UnauthorizedExpception } from "@/commons/utils/catch-errors.js"
+import { success } from "zod"
 
 export class AuthController {
   private authService: AuthService
@@ -86,7 +88,7 @@ export class AuthController {
       res.status(HTTPSTATUS.OK).json({
         success: true,
         message: "Tokens refreshed successfully",
-        data: null, // or { accessToken } if you want to return it in body too (optional)
+        // data: null, // or { accessToken } if you want to return it in body too (optional)
       })
     } catch (err: any) {
       res
@@ -99,5 +101,15 @@ export class AuthController {
           error: { code: "UNAUTHORIZED" },
         })
     }
+  })
+
+  public verifyEmail = asycnHandler(async (req: Request, res: Response) => {
+    const { code } = verficationEmailSchema.parse(req.body)
+    await this.authService.verifyEmail(code)
+
+    res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: "Email verified Successfully!",
+    })
   })
 }
