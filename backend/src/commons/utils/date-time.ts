@@ -1,3 +1,5 @@
+export const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000
+
 export const XDaysFromNow = (day: number): Date => {
   return new Date(Date.now() + day * 24 * 60 * 60 * 1000)
 }

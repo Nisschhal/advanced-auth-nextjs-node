@@ -7,7 +7,12 @@ import {
   registerSchema,
 } from "@/commons/validators/auth.validator.js"
 import type { ApiResponse } from "@/commons/types/api-response.js"
-import { setAuthCookies } from "@/commons/utils/cookie.js"
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+  setAuthCookies,
+} from "@/commons/utils/cookie.js"
+import { UnauthorizedExpception } from "@/commons/utils/catch-errors.js"
 
 export class AuthController {
   private authService: AuthService
@@ -56,5 +61,43 @@ export class AuthController {
     }
 
     res.status(status).json(result) // Send the formatted response
+  })
+
+  public refreshToken = asycnHandler(async (req: Request, res: Response) => {
+    try {
+      const refreshToken = req.cookies.refreshToken as string | undefined
+
+      if (!refreshToken) {
+        throw new UnauthorizedExpception("User not authorized!")
+      }
+
+      const { accessToken, newRefreshToken } =
+        await this.authService.refreshToken(refreshToken)
+      // Set cookies//tokens
+      res
+        .cookie("accessToken", accessToken, getAccessTokenCookieOptions())
+        .cookie(
+          "refreshToken",
+          newRefreshToken ?? refreshToken,
+          getRefreshTokenCookieOptions(),
+        )
+
+      // Consistent success response
+      res.status(HTTPSTATUS.OK).json({
+        success: true,
+        message: "Tokens refreshed successfully",
+        data: null, // or { accessToken } if you want to return it in body too (optional)
+      })
+    } catch (err: any) {
+      res
+        .clearCookie("accessToken")
+        .clearCookie("refreshToken")
+        .status(HTTPSTATUS.UNAUTHORIZED)
+        .json({
+          success: false,
+          message: err.message || "Session expired or invalid",
+          error: { code: "UNAUTHORIZED" },
+        })
+    }
   })
 }

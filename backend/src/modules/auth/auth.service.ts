@@ -2,8 +2,16 @@ import { ErrorCode } from "@/commons/enums/error-code.enum.js"
 import type { LoginDto, RegisterDto } from "@/commons/dto/auth.dto.js"
 import prisma from "@/commons/lib/prisma.js"
 import { compareHashValue, hashValue } from "@/commons/utils/bcrypt-hash.js"
-import { BadRequestException } from "@/commons/utils/catch-errors.js"
-import { XMinutesFromNow } from "@/commons/utils/date-time.js"
+import {
+  BadRequestException,
+  UnauthorizedExpception,
+} from "@/commons/utils/catch-errors.js"
+import {
+  getExpirationDate,
+  ONE_DAY_IN_MS,
+  XDaysFromNow,
+  XMinutesFromNow,
+} from "@/commons/utils/date-time.js"
 import { generateVerificationCode } from "@/commons/utils/generate-verfication-code.js"
 import type { User, UserPreferences } from "@/generated/prisma/client.js"
 import { VerificationType } from "@/generated/prisma/enums.js"
@@ -11,6 +19,13 @@ import type { ApiResponse } from "@/commons/types/api-response.js"
 import jwt, { type SignOptions } from "jsonwebtoken"
 import { config } from "@/config/app.config.js"
 import type { StringValue } from "ms" // or from '@types/ms' if needed
+import {
+  accessTokenSignOptions,
+  refreshTokenSignOptions,
+  signJwtToken,
+  verifyJWTToken,
+  type RefreshTPayload,
+} from "@/commons/utils/jwt.js"
 export class AuthService {
   public async register(
     registerDto: RegisterDto,
@@ -99,27 +114,13 @@ export class AuthService {
       },
     })
 
-    const payload = {
+    const accessToken = signJwtToken({
       userId: existingUser.id,
       sessionId: session.id,
-    }
-
-    const accessSignOptions: SignOptions = {
-      audience: ["user"], // array is fine
-      expiresIn: config.JWT.EXPIRES_IN as StringValue, // make sure this is stringValue | number
-      // algorithm: 'HS256',           // add if you want explicit (default is HS256 anyway)
-    }
-    const refreshSignOptions: SignOptions = {
-      audience: ["user"], // array is fine
-      expiresIn: config.JWT.REFRESH_EXPIRES_IN as StringValue, // make sure this is stringValue | number
-      // algorithm: 'HS256',           // add if you want explicit (default is HS256 anyway)
-    }
-
-    const accessToken = jwt.sign(payload, config.JWT.SECRET, accessSignOptions)
-    const refreshToken = jwt.sign(
-      payload,
-      config.JWT.REFRESH_SECRET,
-      refreshSignOptions,
+    })
+    const refreshToken = signJwtToken(
+      { sessionId: session.id },
+      refreshTokenSignOptions,
     )
 
     return {
@@ -130,6 +131,57 @@ export class AuthService {
         refreshToken,
         user: this.safeUser(existingUser),
       },
+    }
+  }
+
+  public async refreshToken(refreshToken: string) {
+    const { payload, error } = verifyJWTToken<RefreshTPayload>(refreshToken, {
+      secret: refreshTokenSignOptions.secret,
+    })
+
+    if (error) throw new UnauthorizedExpception(error) // or "Invalid/expired refresh token"
+
+    const session = await prisma.session.findUnique({
+      where: {
+        id: payload!.sessionId,
+      },
+    })
+    const now = Date.now()
+    if (!session) throw new UnauthorizedExpception("Session doesn't exist!")
+
+    if (session.expiredAt.getTime() <= now)
+      throw new UnauthorizedExpception("Session expired")
+
+    const sessionRequiredRefresh =
+      session.expiredAt.getTime() - now <= ONE_DAY_IN_MS
+
+    if (sessionRequiredRefresh) {
+      await prisma.session.update({
+        where: {
+          id: payload!.sessionId,
+        },
+        data: {
+          expiredAt: getExpirationDate("30d"),
+        },
+      })
+    }
+    const newRefreshToken = sessionRequiredRefresh
+      ? signJwtToken(
+          {
+            sessionId: session.id,
+          },
+          refreshTokenSignOptions,
+        )
+      : undefined
+
+    const accessToken = signJwtToken({
+      userId: session.userId,
+      sessionId: session.id,
+    })
+
+    return {
+      accessToken,
+      newRefreshToken,
     }
   }
 
