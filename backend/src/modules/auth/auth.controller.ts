@@ -18,9 +18,8 @@ import {
 } from "@/commons/utils/cookie.js"
 import {
   NotFoundException,
-  UnauthorizedExpception,
+  UnauthorizedException,
 } from "@/commons/utils/catch-errors.js"
-import { success } from "zod"
 
 export class AuthController {
   private authService: AuthService
@@ -50,10 +49,8 @@ export class AuthController {
 
   public login = asyncHandler(async (req: Request, res: Response) => {
     const userAgent = req.headers["user-agent"]
-    console.log("user agent", userAgent)
 
     const body = loginSchema.parse({ ...req.body, userAgent })
-
     const result = await this.authService.login(body) // Await the service promise
 
     // Set HTTP status based on success or error
@@ -76,7 +73,7 @@ export class AuthController {
       const refreshToken = req.cookies.refreshToken as string | undefined
 
       if (!refreshToken) {
-        throw new UnauthorizedExpception("User not authorized!")
+        throw new UnauthorizedException("User not authorized!")
       }
 
       const { accessToken, newRefreshToken } =

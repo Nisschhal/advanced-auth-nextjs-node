@@ -27,6 +27,8 @@ import { BadRequestException } from "./commons/utils/catch-errors.js"
 import authRoutes from "./modules/auth/auth.routes.js"
 
 import passport from "@/middlewares/passport.middleware.js"
+import sessionRoutes from "./modules/session/session.route.js"
+import { authJWT } from "./commons/strategies/jwt.strategy.js"
 
 // Create the main Express application instance
 // This 'app' is your entire server — routes, middleware, etc. attach here
@@ -92,6 +94,7 @@ app.get(
 
 // ---------- Auth Routes
 app.use(`${BASE_PATH}/auth`, authRoutes)
+app.use(`${BASE_PATH}/session`, authJWT, sessionRoutes)
 
 //----------- ERROR HANDLER MIDDLEARE
 app.use(errorHandler)

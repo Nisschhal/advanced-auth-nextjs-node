@@ -11,7 +11,7 @@ import {
   HttpException,
   InternalServerException,
   NotFoundException,
-  UnauthorizedExpception,
+  UnauthorizedException,
 } from "@/commons/utils/catch-errors.js"
 import {
   getExpirationDate,
@@ -157,7 +157,7 @@ export class AuthService {
       secret: refreshTokenSignOptions.secret,
     })
 
-    if (error) throw new UnauthorizedExpception(error) // or "Invalid/expired refresh token"
+    if (error) throw new UnauthorizedException(error) // or "Invalid/expired refresh token"
 
     const session = await prisma.session.findUnique({
       where: {
@@ -165,10 +165,10 @@ export class AuthService {
       },
     })
     const now = Date.now()
-    if (!session) throw new UnauthorizedExpception("Session doesn't exist!")
+    if (!session) throw new UnauthorizedException("Session doesn't exist!")
 
     if (session.expiredAt.getTime() <= now)
-      throw new UnauthorizedExpception("Session expired")
+      throw new UnauthorizedException("Session expired")
 
     const sessionRequiredRefresh =
       session.expiredAt.getTime() - now <= ONE_DAY_IN_MS

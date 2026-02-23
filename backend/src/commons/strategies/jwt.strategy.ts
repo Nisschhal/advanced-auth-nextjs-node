@@ -4,7 +4,7 @@ import {
   type StrategyOptionsWithRequest,
   Strategy as JwtStrategy,
 } from "passport-jwt"
-import { UnauthorizedExpception } from "../utils/catch-errors.js"
+import { UnauthorizedException } from "../utils/catch-errors.js"
 import { ErrorCode } from "../enums/error-code.enum.js"
 import { config } from "@/config/app.config.js"
 import type { PassportStatic } from "passport"
@@ -25,7 +25,7 @@ const options: StrategyOptionsWithRequest = {
       const accessToken = req.cookies.accessToken
 
       if (!accessToken) {
-        throw new UnauthorizedExpception(
+        throw new UnauthorizedException(
           "Unauthorized access Token",
           ErrorCode.AUTH_TOKEN_NOT_FOUND,
         )
@@ -45,14 +45,16 @@ export const setupJWTStragegy = (passport: PassportStatic) => {
     new JwtStrategy(
       options,
       // Verify callback as we set passReqToCallback: true,
-      async (req: Request, payload: JwtPayload, done) => {
+      async (req, payload, done) => {
+        console.log("Passport verify called with payload:", payload)
         try {
           const user = await userService.findUserById(payload.userId)
-
+          console.log("User found:", user ? "yes" : "no")
           if (!user) return done(null, false)
           req.sessionId = payload.sessionId
           return done(null, user)
         } catch (error) {
+          console.error("Verify error:", error)
           return done(error, null)
         }
       },
