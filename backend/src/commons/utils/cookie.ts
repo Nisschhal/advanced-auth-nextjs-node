@@ -129,3 +129,8 @@ export const setAuthCookies = ({
 
     // Set long-lived refresh token (only used for /auth/refresh)
     .cookie("refreshToken", refreshToken, getRefreshTokenCookieOptions())
+
+export const clearAuthCookies = (res: Response): Response =>
+  res.clearCookie("accessToken").clearCookie("refreshToken", {
+    path: REFRESH_PATH,
+  })

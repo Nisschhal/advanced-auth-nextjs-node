@@ -11,3 +11,8 @@ export interface LoginDto {
   password: string
   userAgent?: string | undefined
 }
+
+export interface ResetPasswordDto {
+  code: string
+  password: string
+}

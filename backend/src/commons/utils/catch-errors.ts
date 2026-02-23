@@ -1,4 +1,4 @@
-import { HTTPSTATUS } from "@/config/http.config.js"
+import { HTTPSTATUS, type HttpStatusCode } from "@/config/http.config.js"
 import { ErrorCode } from "../enums/error-code.enum.js"
 import { AppError } from "./AppError.js"
 
@@ -34,5 +34,15 @@ export class InternalServerException extends AppError {
       HTTPSTATUS.INTERNAL_SERVER_ERROR,
       errorCode || ErrorCode.INTERNAL_SERVER_ERROR,
     )
+  }
+}
+
+export class HttpException extends AppError {
+  constructor(
+    message = "Http Exception Error",
+    statusCode: HttpStatusCode,
+    errorCode?: ErrorCode,
+  ) {
+    super(message, statusCode, errorCode)
   }
 }

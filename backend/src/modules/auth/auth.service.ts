@@ -1,15 +1,23 @@
 import { ErrorCode } from "@/commons/enums/error-code.enum.js"
-import type { LoginDto, RegisterDto } from "@/commons/dto/auth.dto.js"
+import type {
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+} from "@/commons/dto/auth.dto.js"
 import prisma from "@/commons/lib/prisma.js"
 import { compareHashValue, hashValue } from "@/commons/utils/bcrypt-hash.js"
 import {
   BadRequestException,
+  HttpException,
+  InternalServerException,
+  NotFoundException,
   UnauthorizedExpception,
 } from "@/commons/utils/catch-errors.js"
 import {
   getExpirationDate,
   ONE_DAY_IN_MS,
   XDaysFromNow,
+  XMinutesAgo,
   XMinutesFromNow,
 } from "@/commons/utils/date-time.js"
 import { generateVerificationCode } from "@/commons/utils/generate-verfication-code.js"
@@ -26,6 +34,12 @@ import {
   verifyJWTToken,
   type RefreshTPayload,
 } from "@/commons/utils/jwt.js"
+import { sendEmail } from "@/mailers/mailer.js"
+import {
+  passwordResetTemplate,
+  verifyEmailTemplate,
+} from "@/mailers/templates/template.js"
+import { HTTPSTATUS } from "@/config/http.config.js"
 export class AuthService {
   public async register(
     registerDto: RegisterDto,
@@ -73,8 +87,14 @@ export class AuthService {
 
     if (verificationCode) console.log("VerficationCode created successfully!")
 
+    const verficationUrl = `${config.APP_ORIGIN}/confirm-account?code=${verificationCode.code}`
+
     // TODO: SEND VERIFICATION EMAIL
     // Example: await sendVerificationEmail(email, verificationCode.code);
+    await sendEmail({
+      to: newUser.email,
+      ...verifyEmailTemplate(verficationUrl),
+    })
 
     return {
       success: true,
@@ -222,6 +242,122 @@ export class AuthService {
       },
     }
   }
+
+  public async forgetPassword(email: string) {
+    // 1. Find user (use select to get only needed fields)
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true }, // no need for full user object
+    })
+
+    if (!existingUser) {
+      throw new NotFoundException("User not found")
+    }
+
+    // 2. Rate limiting: max 3 reset emails per 3 minutes
+    // Use _count aggregation → much more efficient than findMany + length
+    const timeAgo = XMinutesAgo(3)
+    const expiredCodes = await prisma.verificationCode.count({
+      where: {
+        userId: existingUser.id,
+        type: VerificationType.PASSWORD_RESET,
+        createdAt: { gte: timeAgo }, // get all codes that are greater than/from 3 minutes ago to now
+      },
+    })
+
+    const maxLimit = 3
+    if (expiredCodes >= maxLimit) {
+      throw new HttpException(
+        "Too many requests, try again later",
+        HTTPSTATUS.TOO_MANY_REQUESTS,
+        ErrorCode.AUTH_TOO_MANY_ATTEMPTS,
+      )
+    }
+
+    // 3. Generate code & expiry
+    const expiresAt = XMinutesFromNow(60)
+    const code = generateVerificationCode()
+
+    // 4. Create verification record
+    await prisma.verificationCode.create({
+      data: {
+        userId: existingUser.id,
+        type: VerificationType.PASSWORD_RESET,
+        code,
+        expiresAt,
+      },
+    })
+
+    // 5. Build secure reset link
+    // Important: NEVER put expiry timestamp in URL — it's not needed and leaks info
+    // Just use the code — expiry is already enforced in DB
+    const resetLink = `${config.APP_ORIGIN}/reset-password?code=${code}`
+
+    // 6. Send email
+    const { data, error } = await sendEmail({
+      to: email,
+      ...passwordResetTemplate(resetLink),
+    })
+
+    console.log({ data, error })
+
+    if (!data?.id) {
+      // In production: do NOT leak internal error details to client
+      throw new InternalServerException("Failed to send reset email")
+    }
+
+    // 7. Return minimal info — never return the code or full link in API response
+    return {
+      message: "Password reset email sent successfully",
+      // Optional: only return emailId for logging/debugging if needed
+      // emailId: data.id,
+    }
+    // TODO: clean old/unused code in cron job in bg weekly or daily
+  }
+
+  public async resetPassword({ password, code }: ResetPasswordDto) {
+    const validCode = await prisma.verificationCode.findUnique({
+      where: {
+        code,
+        type: VerificationType.PASSWORD_RESET,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    })
+
+    if (!validCode)
+      throw new NotFoundException("Invalid or expired Verification Code!")
+
+    const hashedPassword = await hashValue(password)
+    const updatedUser = await prisma.user.update({
+      where: { id: validCode.userId },
+      data: {
+        password: hashedPassword,
+      },
+      include: { preferences: true },
+    })
+
+    if (!updatedUser)
+      throw new InternalServerException("Failed to Reset Password!")
+
+    await prisma.verificationCode.delete({
+      where: {
+        code,
+        type: VerificationType.PASSWORD_RESET,
+      },
+    })
+    await prisma.session.deleteMany({
+      where: { userId: validCode.userId },
+    })
+
+    return {
+      success: true,
+      message: "Pasword reset successfully.",
+      data: { user: this.safeUser(updatedUser) },
+    }
+  }
+
   /**
    * Remove sensitive fields from user object before returning to client
    */

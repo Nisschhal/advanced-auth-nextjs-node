@@ -3,12 +3,16 @@ import type { AuthService } from "./auth.service.js"
 import { HTTPSTATUS } from "@/config/http.config.js"
 import type { Request, Response } from "express"
 import {
+  emailSchema,
+  forgetPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   verficationEmailSchema,
 } from "@/commons/validators/auth.validator.js"
 import type { ApiResponse } from "@/commons/types/api-response.js"
 import {
+  clearAuthCookies,
   getAccessTokenCookieOptions,
   getRefreshTokenCookieOptions,
   setAuthCookies,
@@ -111,5 +115,24 @@ export class AuthController {
       success: true,
       message: "Email verified Successfully!",
     })
+  })
+
+  public forgetPassword = asycnHandler(async (req: Request, res: Response) => {
+    const { email } = forgetPasswordSchema.parse(req.body)
+    const data = await this.authService.forgetPassword(email)
+    console.log("forgetpassword data", data)
+
+    res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: "Password reset link send successfully!",
+    })
+  })
+
+  public resetPassword = asycnHandler(async (req: Request, res: Response) => {
+    const body = resetPasswordSchema.parse(req.body)
+    const result = await this.authService.resetPassword(body)
+    // Set HTTP status based on success or error
+    const status = result.success ? HTTPSTATUS.OK : HTTPSTATUS.BAD_REQUEST
+    return clearAuthCookies(res).status(status).json(result) // Send the formatted response
   })
 }

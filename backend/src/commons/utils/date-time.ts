@@ -1,13 +1,37 @@
 export const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000
 
-export const XDaysFromNow = (day: number): Date => {
-  return new Date(Date.now() + day * 24 * 60 * 60 * 1000)
-}
-
+/**
+ * Returns a Date object X minutes from now.
+ */
 export const XMinutesFromNow = (minute: number): Date => {
   const now = new Date()
   now.setMinutes(now.getMinutes() + minute)
   return now
+}
+
+/**
+ * Returns a Date object X minutes ago from now.
+ */
+export const XMinutesAgo = (minute: number): Date => {
+  const now = new Date()
+  now.setMinutes(now.getMinutes() - minute)
+  return now
+}
+
+/**
+ * Returns a Date object X days from now.
+ * Uses timestamp arithmetic (simple & reliable).
+ */
+export const XDaysFromNow = (day: number): Date => {
+  return new Date(Date.now() + day * 24 * 60 * 60 * 1000)
+}
+
+/**
+ * Returns a Date object X days ago from now.
+ * Uses timestamp arithmetic (simple & reliable).
+ */
+export const XDaysAgo = (day: number): Date => {
+  return new Date(Date.now() - day * 24 * 60 * 60 * 1000)
 }
 
 /**
