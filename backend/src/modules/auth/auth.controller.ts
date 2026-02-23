@@ -1,9 +1,8 @@
-import { asycnHandler } from "@/middlewares/asyncHandler.middlware.js" // Note: Fix typo to 'asyncHandler' if needed
+import { asyncHandler } from "@/middlewares/asyncHandler.middlware.js" // Note: Fix typo to 'asyncHandler' if needed
 import type { AuthService } from "./auth.service.js"
 import { HTTPSTATUS } from "@/config/http.config.js"
 import type { Request, Response } from "express"
 import {
-  emailSchema,
   forgetPasswordSchema,
   loginSchema,
   registerSchema,
@@ -17,7 +16,10 @@ import {
   getRefreshTokenCookieOptions,
   setAuthCookies,
 } from "@/commons/utils/cookie.js"
-import { UnauthorizedExpception } from "@/commons/utils/catch-errors.js"
+import {
+  NotFoundException,
+  UnauthorizedExpception,
+} from "@/commons/utils/catch-errors.js"
 import { success } from "zod"
 
 export class AuthController {
@@ -26,7 +28,7 @@ export class AuthController {
     this.authService = authService
   }
 
-  public register = asycnHandler(
+  public register = asyncHandler(
     // Note: Fix typo to 'asyncHandler' if needed
     async (req: Request, res: Response): Promise<any> => {
       const userAgent = req.headers["user-agent"]
@@ -46,7 +48,7 @@ export class AuthController {
     },
   )
 
-  public login = asycnHandler(async (req: Request, res: Response) => {
+  public login = asyncHandler(async (req: Request, res: Response) => {
     const userAgent = req.headers["user-agent"]
     console.log("user agent", userAgent)
 
@@ -69,7 +71,7 @@ export class AuthController {
     res.status(status).json(result) // Send the formatted response
   })
 
-  public refreshToken = asycnHandler(async (req: Request, res: Response) => {
+  public refreshToken = asyncHandler(async (req: Request, res: Response) => {
     try {
       const refreshToken = req.cookies.refreshToken as string | undefined
 
@@ -107,7 +109,7 @@ export class AuthController {
     }
   })
 
-  public verifyEmail = asycnHandler(async (req: Request, res: Response) => {
+  public verifyEmail = asyncHandler(async (req: Request, res: Response) => {
     const { code } = verficationEmailSchema.parse(req.body)
     await this.authService.verifyEmail(code)
 
@@ -117,7 +119,7 @@ export class AuthController {
     })
   })
 
-  public forgetPassword = asycnHandler(async (req: Request, res: Response) => {
+  public forgetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email } = forgetPasswordSchema.parse(req.body)
     const data = await this.authService.forgetPassword(email)
     console.log("forgetpassword data", data)
@@ -128,11 +130,34 @@ export class AuthController {
     })
   })
 
-  public resetPassword = asycnHandler(async (req: Request, res: Response) => {
+  public resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const body = resetPasswordSchema.parse(req.body)
+
     const result = await this.authService.resetPassword(body)
-    // Set HTTP status based on success or error
+
     const status = result.success ? HTTPSTATUS.OK : HTTPSTATUS.BAD_REQUEST
-    return clearAuthCookies(res).status(status).json(result) // Send the formatted response
+
+    // Only clear cookies on successful reset (logs user out everywhere)
+    if (result.success) {
+      clearAuthCookies(res)
+    }
+
+    // Send response — no need for 'return' here
+    res.status(status).json(result)
+  })
+
+  public logout = asyncHandler(async (req: Request, res: Response) => {
+    const sessionId = req.sessionId
+    if (!sessionId) throw new NotFoundException("Invalid session id")
+    const result = await this.authService.logout(sessionId)
+    const status = result.success ? HTTPSTATUS.OK : HTTPSTATUS.BAD_REQUEST
+
+    // Only clear cookies on successful reset (logs user out everywhere)
+    if (result.success) {
+      clearAuthCookies(res)
+    }
+
+    // Send response — no need for 'return' here
+    res.status(status).json(result)
   })
 }

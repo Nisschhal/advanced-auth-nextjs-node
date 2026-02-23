@@ -22,9 +22,11 @@ import { config } from "./config/app.config.js"
 import { connectDatabase } from "./database/db.js"
 import { errorHandler } from "./middlewares/errorHandler.middleware.js"
 import { HTTPSTATUS } from "./config/http.config.js"
-import { asycnHandler } from "./middlewares/asyncHandler.middlware.js"
+import { asyncHandler } from "./middlewares/asyncHandler.middlware.js"
 import { BadRequestException } from "./commons/utils/catch-errors.js"
 import authRoutes from "./modules/auth/auth.routes.js"
+
+import passport from "@/middlewares/passport.middleware.js"
 
 // Create the main Express application instance
 // This 'app' is your entire server — routes, middleware, etc. attach here
@@ -67,6 +69,7 @@ app.use(
 // Parses cookies from incoming requests → req.cookies.jwt, req.signedCookies, etc.
 // Required when using httpOnly cookies for JWT (most secure way)
 app.use(cookieParser())
+app.use(passport.initialize())
 
 // -----------------------------------------------------------------------------
 //                  ROUTES (your actual API endpoints)
@@ -76,7 +79,7 @@ app.use(cookieParser())
 // Useful for testing if server is alive (e.g. load balancers, frontend ping)
 app.get(
   "/",
-  asycnHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     // throw new BadRequestException("Bad request")
     res.status(HTTPSTATUS.OK).json({
       message: "Hello World!",

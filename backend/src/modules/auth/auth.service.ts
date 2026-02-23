@@ -24,16 +24,13 @@ import { generateVerificationCode } from "@/commons/utils/generate-verfication-c
 import type { User, UserPreferences } from "@/generated/prisma/client.js"
 import { VerificationType } from "@/generated/prisma/enums.js"
 import type { ApiResponse } from "@/commons/types/api-response.js"
-import jwt, { type SignOptions } from "jsonwebtoken"
 import { config } from "@/config/app.config.js"
-import type { StringValue } from "ms" // or from '@types/ms' if needed
 import {
-  accessTokenSignOptions,
   refreshTokenSignOptions,
   signJwtToken,
   verifyJWTToken,
   type RefreshTPayload,
-} from "@/commons/utils/jwt.js"
+} from "@/commons/utils/jwt.utilts.js"
 import { sendEmail } from "@/mailers/mailer.js"
 import {
   passwordResetTemplate,
@@ -66,7 +63,7 @@ export class AuthService {
         password: hashedPassword, // hashed!
         preferences: {
           create: {
-            twoFactorSecret: "123",
+            twoFactorSecret: "123", // TODO: change later
           },
         },
       },
@@ -130,7 +127,7 @@ export class AuthService {
       data: {
         userId: existingUser.id,
         userAgent: userAgent ?? null,
-        expiredAt: XMinutesFromNow(15),
+        expiredAt: XDaysFromNow(30),
       },
     })
 
@@ -138,6 +135,7 @@ export class AuthService {
       userId: existingUser.id,
       sessionId: session.id,
     })
+
     const refreshToken = signJwtToken(
       { sessionId: session.id },
       refreshTokenSignOptions,
@@ -316,52 +314,67 @@ export class AuthService {
   }
 
   public async resetPassword({ password, code }: ResetPasswordDto) {
-    const validCode = await prisma.verificationCode.findUnique({
-      where: {
-        code,
-        type: VerificationType.PASSWORD_RESET,
-        expiresAt: {
-          gt: new Date(),
+    return await prisma.$transaction(async (tx) => {
+      // 1. Find valid code
+      const validCode = await tx.verificationCode.findUnique({
+        where: {
+          code,
+          type: VerificationType.PASSWORD_RESET,
+          expiresAt: { gt: new Date() },
         },
-      },
-    })
+      })
 
-    if (!validCode)
-      throw new NotFoundException("Invalid or expired Verification Code!")
+      if (!validCode) {
+        throw new NotFoundException("Invalid or expired verification code")
+      }
 
-    const hashedPassword = await hashValue(password)
-    const updatedUser = await prisma.user.update({
-      where: { id: validCode.userId },
-      data: {
-        password: hashedPassword,
-      },
-      include: { preferences: true },
-    })
+      // 2. Hash new password
+      const hashedPassword = await hashValue(password)
 
-    if (!updatedUser)
-      throw new InternalServerException("Failed to Reset Password!")
+      // 3. Update password
+      const updatedUser = await tx.user.update({
+        where: { id: validCode.userId },
+        data: { password: hashedPassword },
+        include: { preferences: true },
+      })
 
-    await prisma.verificationCode.delete({
-      where: {
-        code,
-        type: VerificationType.PASSWORD_RESET,
-      },
+      // 4. Make code single-use
+      await tx.verificationCode.delete({
+        where: { code },
+      })
+
+      // 5. Logout all sessions/devices
+      await tx.session.deleteMany({
+        where: { userId: validCode.userId },
+      })
+
+      // Return success
+      return {
+        success: true,
+        message: "Password reset successfully. Please log in again.",
+        data: null, // or keep { user: this.safeUser(updatedUser) } if frontend needs it
+      }
     })
-    await prisma.session.deleteMany({
-      where: { userId: validCode.userId },
+  }
+
+  public async logout(sessionId: string) {
+    const session = await prisma.session.delete({
+      where: { id: sessionId },
     })
+    if (!session)
+      throw new NotFoundException("Invalid sessionId, couldn't logout")
 
     return {
       success: true,
-      message: "Pasword reset successfully.",
-      data: { user: this.safeUser(updatedUser) },
+      message: "Logout Successfull!",
+      data: null,
     }
   }
 
   /**
    * Remove sensitive fields from user object before returning to client
    */
-  private safeUser(user: User & { preferences: UserPreferences | null }): Omit<
+  public safeUser(user: User & { preferences?: UserPreferences | null }): Omit<
     User,
     "password"
   > & {
