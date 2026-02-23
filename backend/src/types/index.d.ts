@@ -1,13 +1,21 @@
-import type { UserModel } from "@/generated/prisma/models.ts"
+import type {
+  UserModel,
+  UserPreferencesModel,
+} from "@/generated/prisma/models.ts"
 import { Request } from "express"
 
-// add this types to tsconfig.json include
+// Extend Express.User to match what you actually get from Prisma
 declare global {
   namespace Express {
-    // User from prisma generated
-    interface User extends UserModel {}
+    interface User extends UserModel {
+      // Add preferences directly (from include: { preferences: true })
+      preferences: UserPreferencesModel | null
+    }
+
     interface Request {
       sessionId?: string
+      // Optional: if you ever attach more (e.g. roles)
+      // roles?: string[]
     }
   }
 }

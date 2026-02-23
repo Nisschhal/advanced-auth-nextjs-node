@@ -46,10 +46,10 @@ export const setupJWTStragegy = (passport: PassportStatic) => {
       options,
       // Verify callback as we set passReqToCallback: true,
       async (req, payload, done) => {
-        console.log("Passport verify called with payload:", payload)
+        // console.log("Passport verify called with payload:", payload)
         try {
           const user = await userService.findUserById(payload.userId)
-          console.log("User found:", user ? "yes" : "no")
+          // console.log("User found:", user ? "yes" : "no")
           if (!user) return done(null, false)
           req.sessionId = payload.sessionId
           return done(null, user)

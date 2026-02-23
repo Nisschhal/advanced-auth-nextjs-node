@@ -29,6 +29,7 @@ import authRoutes from "./modules/auth/auth.routes.js"
 import passport from "@/middlewares/passport.middleware.js"
 import sessionRoutes from "./modules/session/session.route.js"
 import { authJWT } from "./commons/strategies/jwt.strategy.js"
+import mfaRoutes from "./modules/mfa/mfa.route.js"
 
 // Create the main Express application instance
 // This 'app' is your entire server — routes, middleware, etc. attach here
@@ -94,7 +95,22 @@ app.get(
 
 // ---------- Auth Routes
 app.use(`${BASE_PATH}/auth`, authRoutes)
+// ---------- Multi-Factor-Auth Routes
+app.use(`${BASE_PATH}/mfa`, authJWT, mfaRoutes)
+// ---------- Session Routes
 app.use(`${BASE_PATH}/session`, authJWT, sessionRoutes)
+
+// Catch-all 404 — MUST be after all routes
+app.use((req: Request, res: Response) => {
+  res.status(HTTPSTATUS.NOT_FOUND).json({
+    success: false,
+    message: "Not Found",
+    error: {
+      code: "NOT_FOUND",
+      details: `The endpoint ${req.method} ${req.originalUrl} does not exist`,
+    },
+  })
+})
 
 //----------- ERROR HANDLER MIDDLEARE
 app.use(errorHandler)

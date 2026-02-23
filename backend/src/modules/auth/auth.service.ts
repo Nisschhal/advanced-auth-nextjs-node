@@ -62,9 +62,7 @@ export class AuthService {
         email,
         password: hashedPassword, // hashed!
         preferences: {
-          create: {
-            twoFactorSecret: "123", // TODO: change later
-          },
+          create: {}, // Creates preferece table and linked to user with default values
         },
       },
 
@@ -332,7 +330,7 @@ export class AuthService {
       const hashedPassword = await hashValue(password)
 
       // 3. Update password
-      const updatedUser = await tx.user.update({
+      await tx.user.update({
         where: { id: validCode.userId },
         data: { password: hashedPassword },
         include: { preferences: true },
@@ -374,7 +372,7 @@ export class AuthService {
   /**
    * Remove sensitive fields from user object before returning to client
    */
-  public safeUser(user: User & { preferences?: UserPreferences | null }): Omit<
+  public safeUser(user: User & { preferences: UserPreferences | null }): Omit<
     User,
     "password"
   > & {
