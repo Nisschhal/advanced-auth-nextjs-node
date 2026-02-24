@@ -96,7 +96,7 @@ app.get(
 // ---------- Auth Routes
 app.use(`${BASE_PATH}/auth`, authRoutes)
 // ---------- Multi-Factor-Auth Routes
-app.use(`${BASE_PATH}/mfa`, authJWT, mfaRoutes)
+app.use(`${BASE_PATH}/mfa`, mfaRoutes)
 // ---------- Session Routes
 app.use(`${BASE_PATH}/session`, authJWT, sessionRoutes)
 

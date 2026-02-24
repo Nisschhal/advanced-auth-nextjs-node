@@ -103,7 +103,7 @@ export class AuthService {
     ApiResponse<{
       accessToken: string
       refreshToken: string
-      user: ReturnType<AuthService["safeUser"]>
+      user: ReturnType<AuthService["safeUser"]> | null
     }>
   > {
     const { email, password, userAgent } = loginDto
@@ -120,6 +120,19 @@ export class AuthService {
       )
 
     // TODO: check if user enabled 2fa and send verify code
+    if (existingUser.preferences?.enable2FA) {
+      return {
+        success: false,
+        message: "MFA enabled need to verify user",
+
+        data: {
+          mfaRequired: true,
+          accessToken: "",
+          refreshToken: "",
+          user: null,
+        },
+      }
+    }
 
     const session = await prisma.session.create({
       data: {

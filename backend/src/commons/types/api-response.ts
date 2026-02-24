@@ -10,6 +10,7 @@ export type ApiSuccessResponse<T = unknown> = {
 export type ApiErrorResponse = {
   success: false
   message: string
+  data: any
   error?: {
     code: string | HttpStatusCode
     issues?: Array<{

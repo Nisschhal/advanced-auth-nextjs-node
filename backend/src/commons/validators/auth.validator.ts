@@ -3,14 +3,14 @@ import * as z from "zod"
 export const emailSchema = z.email().trim().min(1).max(255)
 export const passwordSchema = z.string().trim().min(6).max(255)
 export const verificationCodeSchema = z.string().trim().min(6).max(6)
-
+export const userAgentSchema = z.string().optional()
 export const registerSchema = z
   .object({
     name: z.string().trim().min(1).max(255),
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: passwordSchema,
-    userAgent: z.string().optional(),
+    userAgent: userAgentSchema,
   })
   .refine((val) => val.password === val.confirmPassword, {
     message: "Password does not match!",
@@ -20,7 +20,7 @@ export const registerSchema = z
 export const loginSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  userAgent: z.string().optional(),
+  userAgent: userAgentSchema,
 })
 
 export const verficationEmailSchema = z.object({

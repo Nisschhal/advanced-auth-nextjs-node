@@ -1,105 +1,90 @@
 import prisma from "@/commons/lib/prisma.js"
 import {
   BadRequestException,
+  NotFoundException,
   UnauthorizedException,
 } from "@/commons/utils/catch-errors.js"
 import type { Request } from "express"
 import speakeasy from "speakeasy"
 import qrcode from "qrcode"
-import { hashValue } from "@/commons/utils/bcrypt-hash.js"
+import { XDaysFromNow } from "@/commons/utils/date-time.js"
+import {
+  accessTokenSignOptions,
+  refreshTokenSignOptions,
+  signJwtToken,
+} from "@/commons/utils/jwt.utilts.js"
+import { authService } from "../auth/auth.module.js"
 
 export class MFAService {
+  /**
+   * Generate MFA setup (QR code + secret + backup codes)
+   */
   public async generateMFASetup(req: Request) {
     const user = req.user
-
     if (!user) {
       throw new UnauthorizedException("User not authorized")
     }
 
-    // Get current preferences
-    const preferences = await prisma.userPreferences.findUnique({
-      where: { userId: user.id },
-    })
-
-    if (preferences?.enable2FA) {
-      return {
-        success: false,
-        message: "2FA is already enabled",
-      }
-    }
-
-    // Use transaction for safety
     return await prisma.$transaction(async (tx) => {
+      // Load current preferences
+      const preferences = await tx.userPreferences.findUnique({
+        where: { userId: user.id },
+      })
+
+      if (preferences?.enable2FA) {
+        return {
+          success: false,
+          message: "2FA is already enabled",
+        }
+      }
+
+      // Use existing secret or generate new one
       let secretKey = preferences?.twoFactorSecret
 
-      // Generate new secret if missing
       if (!secretKey) {
-        const secretObj = speakeasy.generateSecret({
-          length: 20, // strong 160-bit secret
-        })
+        const secretObj = speakeasy.generateSecret({ length: 20 })
         secretKey = secretObj.base32
 
-        // Update preferences (create if not exists)
+        // Create or update preferences
         await tx.userPreferences.upsert({
           where: { userId: user.id },
-          update: {
-            twoFactorSecret: secretKey,
-          },
+          update: { twoFactorSecret: secretKey },
           create: {
             userId: user.id,
-            enable2FA: false, // still off until verified
+            enable2FA: false,
             emailNotification: true,
             twoFactorSecret: secretKey,
           },
         })
       }
 
-      // Generate otpauth URL (shows nicely in authenticator app)
+      // Create otpauth URL (what authenticator apps read)
       const otpauthUrl = speakeasy.otpauthURL({
         secret: secretKey,
-        label: `YourApp: ${user.email}`, // ← important: user sees their email
-        issuer: "YourApp", // your app/company name
+        label: `YourApp: ${user.email}`,
+        issuer: "YourApp",
         encoding: "base32",
       })
 
-      // Generate QR code as base64 data URL
+      // Generate QR code as base64 string
       const qrImageUrl = await qrcode.toDataURL(otpauthUrl)
-
-      // Generate 10 backup codes (one-time use)
-      const backupCodes = Array.from({ length: 10 }, () =>
-        speakeasy.totp({
-          secret: speakeasy.generateSecret().base32,
-          digits: 8,
-        }),
-      )
-
-      // // Hash and save backup codes (never store plain)
-      // const hashedBackupCodes = await Promise.all(
-      //   backupCodes.map((code) => hashValue(code)),
-      // )
-
-      // // Save hashed backup codes (you'll need a field for this)
-      // await tx.userPreferences.update({
-      //   where: { userId: user.id },
-      //   data: {
-      //     backupCodes: hashedBackupCodes, // add this field to schema
-      //   },
-      // })
 
       return {
         success: true,
         message:
-          "Scan the QR code with Google Authenticator, Authy, or Microsoft Authenticator. " +
-          "Enter the current 6-digit code to enable 2FA. Save your backup codes!",
+          "To enable 2FA:\n" +
+          "1. Open Google Authenticator, Authy, or Microsoft Authenticator.\n" +
+          "2. Scan the QR code below or enter the secret key manually.\n" +
+          "3. Enter the current 6-digit code from the app to finish setup.",
         qrImageUrl,
-        // Do NOT return secretKey in response (security)
-        // User can see it in authenticator app or use manual entry
-        backupCodes, // return plain codes ONCE during setup only!
+        secretKey, // for manual entry fallback (show on screen only)
       }
     })
   }
 
-  // Bonus: Verify code during enable/setup
+  /**
+   * Verify the 6-digit code and enable 2FA
+   */
   public async verifyMFASetup(req: Request, code: string) {
     const user = req.user
     if (!user) throw new UnauthorizedException("Unauthorized")
@@ -109,18 +94,30 @@ export class MFAService {
     })
 
     if (!preferences?.twoFactorSecret) {
-      throw new BadRequestException("2FA not set up yet")
+      throw new BadRequestException(
+        "2FA setup not started. Call /mfa/setup first.",
+      )
+    }
+
+    if (preferences.enable2FA) {
+      return {
+        success: false,
+        message: "2FA is already enabled",
+      }
     }
 
     const isValid = speakeasy.totp.verify({
       secret: preferences.twoFactorSecret,
       encoding: "base32",
-      token: code,
-      window: 1, // 90 sec tolerance
+      token: code.trim(),
+      window: 2, // 180 seconds tolerance — covers clock drift & delay
+      step: 30,
     })
 
+    console.log("Code valid:", isValid)
+
     if (!isValid) {
-      throw new BadRequestException("Invalid 2FA code")
+      throw new BadRequestException("Invalid MFA code. Please try again!")
     }
 
     // Enable 2FA
@@ -129,6 +126,105 @@ export class MFAService {
       data: { enable2FA: true },
     })
 
-    return { success: true, message: "2FA enabled successfully" }
+    return {
+      success: true,
+      message: "2FA enabled successfully",
+    }
+  }
+
+  public async revokeMFA(req: Request) {
+    const user = req.user
+
+    if (!user) {
+      throw new UnauthorizedException("User not authorized")
+    }
+
+    if (!user.preferences?.enable2FA) {
+      return {
+        success: false,
+        message: "MFA is not enabled",
+        userPreferences: {
+          enable2FA: user.preferences?.enable2FA,
+        },
+      }
+    }
+
+    await prisma.userPreferences.update({
+      where: { userId: user.id },
+      data: {
+        twoFactorSecret: null,
+        enable2FA: false,
+      },
+    })
+
+    return {
+      message: "MFA revoke successfully",
+      preferences: {
+        enable2FA: user.preferences.enable2FA,
+      },
+    }
+  }
+
+  public async verifyMFAForLogin(
+    code: string,
+    email: string,
+    userAgent?: string,
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { preferences: true },
+    })
+
+    if (!user) {
+      throw new NotFoundException("User not found")
+    }
+
+    if (!user.preferences?.enable2FA && !user.preferences?.twoFactorSecret) {
+      throw new UnauthorizedException("MFA not enabled for this user")
+    }
+
+    const isValid = speakeasy.totp.verify({
+      secret: user.preferences?.twoFactorSecret!,
+      encoding: "base32",
+      token: code,
+    })
+
+    if (!isValid) {
+      throw new BadRequestException("Invalid MFA code. Please try again.")
+    }
+
+    //sign access token & refresh token
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+        userAgent: userAgent ?? null,
+        expiredAt: XDaysFromNow(30),
+      },
+    })
+
+    const accessToken = signJwtToken(
+      {
+        userId: user.id,
+        sessionId: session.id,
+      },
+      accessTokenSignOptions,
+    )
+
+    const refreshToken = signJwtToken(
+      {
+        sessionId: session.id,
+      },
+      refreshTokenSignOptions,
+    )
+
+    return {
+      success: true,
+      message: "MFA Verfigied and login Successfull!",
+      data: {
+        accessToken,
+        refreshToken,
+        user: authService.safeUser(user),
+      },
+    }
   }
 }
