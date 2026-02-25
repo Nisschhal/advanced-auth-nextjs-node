@@ -113,11 +113,19 @@ export class AuthService {
         preferences: true,
       },
     })
-    if (!existingUser || !compareHashValue(password, existingUser.password))
+
+    // Option A - await it properly
+    const passwordValid = await compareHashValue(
+      password,
+      existingUser?.password ?? "some-dummy-that-never-matches",
+    )
+
+    if (!existingUser || !passwordValid) {
       throw new BadRequestException(
-        "Invalid email or password provided!",
+        "Invalid credentials",
         ErrorCode.AUTH_USER_NOT_FOUND,
       )
+    }
 
     // TODO: check if user enabled 2fa and send verify code
     if (existingUser.preferences?.enable2FA) {
@@ -300,7 +308,8 @@ export class AuthService {
     // 5. Build secure reset link
     // Important: NEVER put expiry timestamp in URL — it's not needed and leaks info
     // Just use the code — expiry is already enforced in DB
-    const resetLink = `${config.APP_ORIGIN}/reset-password?code=${code}`
+    // expiredAt comes in string so we need to give time in milliseconds
+    const resetLink = `${config.APP_ORIGIN}/reset-password?code=${code}&exp=${expiresAt.getTime()}`
 
     // 6. Send email
     const { data, error } = await sendEmail({

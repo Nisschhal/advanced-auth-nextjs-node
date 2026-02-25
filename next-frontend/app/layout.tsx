@@ -3,6 +3,7 @@ import { DM_Sans, Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/providers/next-theme"
 import QueryProvider from "@/components/providers/query-provider"
+import { Toaster } from "sonner"
 
 const dm_sans = DM_Sans({ subsets: ["latin"] })
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {children}
+            <Toaster richColors position="top-center" />
           </ThemeProvider>
         </QueryProvider>
       </body>

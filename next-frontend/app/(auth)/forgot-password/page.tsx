@@ -1,7 +1,12 @@
-import React from "react"
+import { Suspense } from "react"
+import ForgotPassword from "./_forgotpassword"
 
-const ForgotPassword = () => {
-  return <div>ForgotPassword</div>
+const Page = () => {
+  return (
+    <Suspense>
+      <ForgotPassword />;
+    </Suspense>
+  )
 }
 
-export default ForgotPassword
+export default Page

@@ -51,6 +51,7 @@ export class AuthController {
     const userAgent = req.headers["user-agent"]
 
     const body = loginSchema.parse({ ...req.body, userAgent })
+    console.log("incoming body", body)
     const result = await this.authService.login(body) // Await the service promise
 
     // Set HTTP status based on success or error

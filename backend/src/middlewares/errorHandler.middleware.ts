@@ -12,6 +12,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   let response: ApiResponse = {
     success: false,
     message: "Internal Server Error",
+    data: null,
     // We omit `error` here → it's optional
   }
 
@@ -38,6 +39,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
         code: "VALIDATION_ERROR",
         issues, // Keep for detailed form handling
       },
+      data: null,
     }
   } else if (err instanceof AppError) {
     status = err.statusCode ?? HTTPSTATUS.BAD_REQUEST
@@ -50,6 +52,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
         // Only add stack in development
         ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
       },
+      data: null,
     }
   } else if (err instanceof SyntaxError && err.message.includes("JSON")) {
     status = HTTPSTATUS.BAD_REQUEST
@@ -60,6 +63,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
       error: {
         code: "INVALID_JSON",
       },
+      data: null,
     }
   } else {
     // Unknown error – safely handle unknown/any
@@ -74,6 +78,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
         ...(isDev && err instanceof Error && { stack: err.stack }),
         ...(isDev && { raw: String(err) }), // helpful for non-Error objects
       },
+      data: null,
     }
   }
 

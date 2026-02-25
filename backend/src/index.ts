@@ -104,7 +104,7 @@ app.use(`${BASE_PATH}/session`, authJWT, sessionRoutes)
 app.use((req: Request, res: Response) => {
   res.status(HTTPSTATUS.NOT_FOUND).json({
     success: false,
-    message: "Not Found",
+    message: `API Route: ${req.originalUrl} not found`,
     error: {
       code: "NOT_FOUND",
       details: `The endpoint ${req.method} ${req.originalUrl} does not exist`,

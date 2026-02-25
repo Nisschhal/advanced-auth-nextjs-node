@@ -1,7 +1,11 @@
-import React from "react"
-
-const ConfirmAccount = () => {
-  return <div>ConfirmAccount</div>
+import { Suspense } from "react"
+import ConfirmAccount from "./_confirmaccount"
+const Page = () => {
+  return (
+    <Suspense>
+      <ConfirmAccount />
+    </Suspense>
+  )
 }
 
-export default ConfirmAccount
+export default Page
