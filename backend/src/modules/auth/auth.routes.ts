@@ -11,6 +11,6 @@ authRoutes.post("/forgot-password", authController.forgetPassword)
 authRoutes.post("/reset-password", authController.resetPassword)
 authRoutes.post("/logout", authJWT, authController.logout)
 
-authRoutes.post("/refresh", authController.refreshToken)
+authRoutes.get("/refresh", authController.refreshToken)
 
 export default authRoutes

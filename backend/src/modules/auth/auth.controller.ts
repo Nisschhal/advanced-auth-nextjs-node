@@ -73,6 +73,7 @@ export class AuthController {
     try {
       const refreshToken = req.cookies.refreshToken as string | undefined
 
+      console.log("refreshtoken", refreshToken)
       if (!refreshToken) {
         throw new UnauthorizedException("User not authorized!")
       }

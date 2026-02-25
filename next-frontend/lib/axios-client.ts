@@ -8,6 +8,9 @@ const options: AxiosRequestConfig = {
 
 const API = axios.create(options)
 
+export const APIRefresh = axios.create(options)
+APIRefresh.interceptors.response.use((response) => response)
+
 API.interceptors.response.use(
   (response) => {
     console.log(
@@ -19,13 +22,13 @@ API.interceptors.response.use(
     return response
   },
 
-  (error) => {
-    // console.error(
-    //   `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
-    // )
-    // console.error("Status:", error.response?.status)
-    // console.error("Full error response:", error.response?.data)
-    // console.error("Message:", error.message)
+  async (error) => {
+    console.error(
+      `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+    )
+    console.error("Status:", error.response?.status)
+    console.error("Full error response:", error.response?.data)
+    console.error("Message:", error.message)
 
     const responseData = error.response?.data
     const status = error.response?.status
@@ -51,15 +54,22 @@ API.interceptors.response.use(
         status === 401 ||
         responseData.error?.code === "AUTH_TOKEN_NOT_FOUND"
       ) {
+        try {
+          const refreshResponse = await APIRefresh.get("/auth/refresh")
+          console.log("[refresh resonse]", refreshResponse)
+          return APIRefresh(error.config)
+        } catch (error) {
+          window.location.href = "/"
+        }
         // Example: auto-logout or redirect
-        console.warn("Auth error detected - token invalid or missing")
+        // console.warn("Auth error detected - token invalid or missing")
         // clearAuthCookies() // if you have this helper
         // window.location.href = '/login?reason=unauthorized' // or use next/navigation
       }
     }
 
     // Optional: global toast or notification
-    // toast.error(handledError.error.code || handledError.message)
+    toast.error(handledError.message)
 
     // Reject with clean error object
     return Promise.reject(handledError)
