@@ -1,7 +1,24 @@
-import React from "react"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import Asidebar from "./_components/Asidebar"
+import Header from "./_components/Header"
+import { AuthProvider } from "@/components/providers/auth-provider"
 
-const MainLayout = ({ children }: { children: React.ReactNode }) => {
-  return <div>{children}</div>
+export default function MainLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <AuthProvider>
+      <SidebarProvider>
+        <Asidebar />
+        <SidebarInset>
+          <main className="w-full">
+            <Header />
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </AuthProvider>
+  )
 }
-
-export default MainLayout

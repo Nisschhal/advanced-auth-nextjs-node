@@ -55,7 +55,7 @@ export class AuthController {
     const result = await this.authService.login(body) // Await the service promise
 
     // Set HTTP status based on success or error
-    const status = result.success ? HTTPSTATUS.OK : HTTPSTATUS.BAD_REQUEST
+    // const status = result.success ? HTTPSTATUS.OK : HTTPSTATUS.BAD_REQUEST
 
     // ← Add this check
     if (result.success && result.data) {
@@ -66,7 +66,7 @@ export class AuthController {
       })
     }
 
-    res.status(status).json(result) // Send the formatted response
+    res.status(HTTPSTATUS.OK).json(result) // Send the formatted response
   })
 
   public refreshToken = asyncHandler(async (req: Request, res: Response) => {

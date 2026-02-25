@@ -132,7 +132,6 @@ export class AuthService {
       return {
         success: false,
         message: "MFA enabled need to verify user",
-
         data: {
           mfaRequired: true,
           accessToken: "",

@@ -21,7 +21,8 @@ const queryCache = new QueryCache({
   },
   onSuccess: (data: unknown, query) => {
     console.log(`[QUERY SUCCESS] Key: ${JSON.stringify(query.queryKey)}`, data)
-    if ((data as any)?.data.message) toast.success((data as any).data.message)
+    if ((data as any)?.data.message)
+      toast.success((data as any).message || (data as any).data.message)
   },
 })
 

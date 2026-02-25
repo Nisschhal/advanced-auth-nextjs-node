@@ -20,7 +20,7 @@ export class MFAController {
     },
   )
   public verifyMFASetup = asyncHandler(async (req: Request, res: Response) => {
-    const { code, secretKey } = verifyMFASchema.parse({ ...req.body })
+    const { code } = verifyMFASchema.parse({ ...req.body })
     const result = await this.mfaService.verifyMFASetup(req, code)
 
     res.status(HTTPSTATUS.OK).json(result)

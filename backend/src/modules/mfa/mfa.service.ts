@@ -77,7 +77,7 @@ export class MFAService {
           "2. Scan the QR code below or enter the secret key manually.\n" +
           "3. Enter the current 6-digit code from the app to finish setup.",
         qrImageUrl,
-        secretKey, // for manual entry fallback (show on screen only)
+        // secretKey, // for manual entry fallback (show on screen only)
       }
     })
   }
@@ -158,6 +158,7 @@ export class MFAService {
     })
 
     return {
+      success: true,
       message: "MFA revoke successfully",
       preferences: {
         enable2FA: user.preferences.enable2FA,

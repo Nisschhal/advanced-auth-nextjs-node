@@ -23,7 +23,7 @@ export class SessionService {
           gt: new Date(),
         },
       },
-      include: { user: true },
+      include: { user: { include: { preferences: true } } },
     })
     if (!session) throw new NotFoundException("Session not found")
 

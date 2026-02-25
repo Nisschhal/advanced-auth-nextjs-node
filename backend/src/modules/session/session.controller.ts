@@ -31,7 +31,7 @@ export class SessionController {
     res.status(HTTPSTATUS.OK).json({
       success: true,
       message: "Sessions reterived successfully!",
-      data: modifySession,
+      data: { sessions: modifySession },
     })
   })
 
